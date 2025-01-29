@@ -1,0 +1,250 @@
+---
+title: "Arbeidskrav 1"
+author: "Sophie Haugenes Kristiansen"
+format:
+  html:
+    fig-pos: "H"
+    includes:
+      in-header: header.tex
+language: quarto_norsk.yml
+warning: false
+output: true
+editor: visual
+---
+
+## Assignment 1 - reading static web pages
+
+```{r}
+# Rydder i data, og laster inn nødvendige bibliotek
+rm(list = ls())
+
+library(tidyverse)
+library(zoo)
+library(lubridate)
+
+```
+
+```{r}
+
+#Laster inn data fra alle datasettene
+
+url_low <- "http://vortex.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt"
+
+df_low <- read_table(url_low, col_names = TRUE)
+
+url_mid <- "http://vortex.nsstc.uah.edu/data/msu/v6.0/tmt/uahncdc_mt_6.0.txt"
+
+df_mid <- read_table(url_mid, col_names = TRUE)
+
+url_tro <- "http://vortex.nsstc.uah.edu/data/msu/v6.0/ttp/uahncdc_tp_6.0.txt"
+
+df_tro <- read_table(url_tro, col_names = TRUE)
+
+url_stra <- "http://vortex.nsstc.uah.edu/data/msu/v6.0/tls/uahncdc_ls_6.0.txt"
+
+df_stra <- read_table(url_stra, col_names = TRUE)
+```
+
+```{r}
+
+# Endrer navn og velger ut kolonne for df_low
+df_low <- df_low %>%
+  rename(month = Mo) %>%
+  select(Year, month, Globe, ) %>% 
+  mutate(Globe = as.numeric(Globe)) %>% 
+  filter(!Year %in% c("Year", "Trend", "NoExt", "NOTE:", "GL")) %>% 
+  filter(Year>=1980)
+
+# Endrer navn og velger ut kolonne for df_mid
+df_mid <- df_mid %>%
+  rename(month = Mo) %>%
+  select(Year, month, Globe) %>% 
+  mutate(Globe = as.numeric(Globe)) %>% 
+  filter(!Year %in% c("Year", "Trend", "NoExt", "NOTE:", "GL")) %>% 
+  filter(Year>=1980)
+
+```
+
+```{r}
+
+# Endrer navn og velger ut kolonne for df_stra
+df_stra <- df_stra %>%
+  rename(month = Mo) %>%
+  select(Year, month, Globe) %>%
+  mutate(Globe = as.numeric(Globe)) %>% 
+  filter(!Year %in% c("Year", "Trend", "NoExt", "NOTE:", "GL")) %>% 
+  filter(Year>=1980)
+
+# Endrer navn og velger ut kolonne for df_tro
+df_tro <- df_tro %>%
+  rename(month = Mo) %>%
+  select(Year, month, Globe) %>% 
+  mutate(Globe = as.numeric(Globe)) %>% 
+  filter(!Year %in% c("Year", "Trend", "NoExt", "NOTE:", "GL")) %>% 
+  filter(Year>=1980)
+```
+
+```{r}
+
+# Regner ut gjennomsnittstemperaturen for hvert år
+
+df_low <- df_low %>%
+  
+  group_by(Year) %>%
+  
+  mutate(RollMean = rollmean(Globe, k = 12, fill = NA, align = "right")) %>%
+  
+  ungroup()
+
+
+
+df_mid <- df_mid %>%
+  
+  group_by(Year) %>%
+  
+  mutate(RollMean = rollmean(Globe, k = 12, fill = NA, align = "right")) %>%
+  
+  ungroup()
+
+
+```
+
+```{r}
+
+# Regner ut gjennomsnittstemperaturen for hvert år
+
+df_stra <- df_stra %>%
+  
+  group_by(Year) %>%
+  
+  mutate(RollMean = rollmean(Globe, k = 12, fill = NA, align = "right")) %>%
+  ungroup()
+
+
+
+df_tro <- df_tro %>%
+  
+  group_by(Year) %>%
+  
+  mutate(RollMean = rollmean(Globe, k = 12, fill = NA, align = "right")) %>%
+  
+  ungroup()
+```
+
+```{r}
+
+# Velger ut ønskede verdier og fjerner na verdier
+df_low <- df_low %>%
+  
+  select(Year, RollMean) %>% 
+  
+  filter(!is.na(RollMean)) %>% 
+  
+  group_by(Year) %>%
+  
+  summarise(Average = mean(RollMean, na.rm = TRUE)) 
+
+
+
+df_mid <- df_mid %>%
+  
+  select(Year, RollMean) %>% 
+  
+  filter(!is.na(RollMean)) %>% 
+  
+  group_by(Year) %>%
+  
+  summarise(Average = mean(RollMean, na.rm = TRUE)) 
+```
+
+```{r}
+
+# Velger ut ønskede verdier og fjerner na verdier
+df_stra <- df_stra %>% 
+  
+  select(Year, RollMean) %>% 
+  
+  filter(!is.na(RollMean)) %>% 
+  
+  group_by(Year) %>%
+  
+  summarise(Average = mean(RollMean, na.rm = TRUE)) 
+
+df_tro <- df_tro %>% 
+  
+  select(Year, RollMean) %>% 
+  
+  filter(!is.na(RollMean)) %>% 
+  
+  group_by(Year) %>%
+  
+  summarise(Average = mean(RollMean, na.rm = TRUE)) 
+```
+
+```{r}
+
+# Danner en kolonne som viser til gruppen
+df_low$group <- "Nedre troposfære"
+df_mid$group <- "Midt-troposfæren"
+df_stra$group <- "Nedre stratosfære"
+df_tro$group <- "Troposfære"
+
+# Kombiner alle datasettene
+df <- rbind(df_low, df_mid, df_stra, df_tro)
+
+# Regner ut samlet gjennomsnittet alle de fire stedene for hvert år
+df <- df %>%
+  
+  group_by(Year) %>%
+  
+  mutate(Gjennomsnitt = mean(Average, na.rm = TRUE)) %>%
+  
+  ungroup()
+```
+
+```{r}
+# Fikser på data settet sik at det er enklere og hente ut verdier
+# til visualisereringen
+df <- df %>%
+  pivot_wider(names_from = group, values_from = Average)
+
+df <- df %>%
+  pivot_longer(cols = -Year,  # Alle kolonner unntatt Year
+               names_to = "type", 
+               values_to = "Average_Temp")
+```
+
+```{r}
+#| label: fig-c
+#| fig-cap: "Gjennomsnittstemperatur i de ulike atmosfærene"
+#| fig.width: 10
+#| fig.height: 6
+
+# Danner en figur
+
+ggplot(df, aes(x = Year, y = Average_Temp, color = type, group = type)) + 
+  geom_line(linewidth = 1.0) + 
+  
+  geom_point(size = 2)+
+  
+  geom_hline(yintercept = 0, color = "grey", size = 1) +
+  
+  labs(title = "Utvikling i gjenomsnittstemperatur i atmosfæren",
+       subtitle = "ved 4 ulike steder ",
+       x = "År",
+       y = "Temperatur (°C)",
+       color = "4 ulike steder ( + gjennomsnittet)") +
+  
+  theme_minimal() +
+  
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    # Endre heldning på teksten på x-aksen
+    
+    plot.title = element_text(size = 26, face = "bold"), 
+    # Endrer størrelsen på hovedoverskriften og gjør den tykk
+    
+    plot.subtitle = element_text(size = 18, face = "italic"))
+    # Endrer størrelsen på undertittle og gjør den kursiv
+
+```
