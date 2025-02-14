@@ -1,0 +1,342 @@
+---
+title: "Arbeidskrav 2"
+author: "Sophie Haugenes Kristiansen"
+format:
+  html:
+    fig-pos: "H"
+    includes:
+      in-header: header.tex
+language: quarto_norsk.yml
+warning: false
+output: true
+editor: visual
+---
+
+# Arbeidskrav 2
+
+## Oppgave 1
+
+```{r}
+# Rydder i data, og laster inn nødvendige bibliotek
+rm(list = ls())
+
+library(tidyverse)
+library(janitor)
+```
+
+```{r}
+
+#Laster inn data fra alle datasettene
+
+url_oppgave_1 <- "https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv"
+
+df_sales <- read_csv(url_oppgave_1)
+```
+
+### Deloppgave 1
+
+```{r}
+
+df_total_sales <- df_sales %>%
+  mutate(Order_Date = as.Date(Order_Date, format="%Y-%m-%d")) %>% 
+  filter(month(Order_Date) %in% c(10, 11, 12) & year(Order_Date) == 2017) %>%
+  filter(Region %in% c("Region 1", "Region 9") & Customer_Segment %in% c("Corporate", "Consumer"))
+
+
+```
+
+```{r}
+Tabell_1 <- df_total_sales %>%
+  group_by(Region, Customer_Segment,
+           Month = month(Order_Date, label = TRUE)) %>%  
+  summarise(Total_Sales = sum(Sales), .groups = "drop")
+
+print(Tabell_1)
+# Det finnes ingen verdier for desember 2017 for konsumer for region 9
+```
+
+### Deloppgave 2
+
+```{r}
+
+df_monthly_sales <- df_sales %>%
+  mutate(Order_Date = as.Date(Order_Date, format="%Y-%m-%d")) %>% 
+  filter(Region %in% c("Region 1", "Region 13") & year(Order_Date) %in% c(2015, 2016, 2017)) %>%
+  mutate(Year = year(Order_Date),
+         Month = month(Order_Date, label = TRUE, locale = "en_US"))
+
+df_monthly_sales <- df_monthly_sales %>% 
+  group_by(Month,Year, Region) %>%
+  mutate(Total_Sales = sum(Sales, na.rm = TRUE), .groups = "drop") %>%
+  select(Month, Year, Region, Total_Sales) %>% 
+  ungroup()
+
+df_monthly_sales <- df_monthly_sales %>% 
+  mutate(Month_Num = match(Month, month.abb),  # Konverter måned til tall
+         Date = as.Date(paste(Year, Month_Num, "01", sep = "-"), 
+                        format = "%Y-%m-%d")) %>%
+  select(-Month_Num) %>% 
+  distinct(Date, Region, Total_Sales, .keep_all = TRUE) %>% 
+  select(Date, Region, Total_Sales) 
+
+
+```
+
+```{r warning=FALSE, message=FALSE}
+#| label: fig-monthly-sales
+#| fig-cap: "Monthly total sales"
+#| fig.width: 10
+#| fig.height: 6
+
+df_monthly_sales %>% 
+  
+  # Danner en figur 
+  ggplot(aes(x = Date, y = Total_Sales, group = Region, color = Region)) +  
+  
+  # Danner en linjeplot, og endrer tykkelsen
+  geom_line(size = 1.25) + 
+  
+  # Setter farge på landene til lett lesbare farger
+  scale_color_brewer(palette = "Set2") +
+  
+  labs(
+      # Hovedtittel
+      title = "Monthly total sales in Region 1 and Region 13 " , 
+      
+      # Undertittel
+      subtitle = "(2015-2017) ",
+      
+      # Danner en kilde
+      caption = "Kilde: git.hub" , # Kilde
+      
+      # Danner en aksetittel
+      x = "Year",
+      
+      # Danner en aksetittel
+      y = "Total sale",
+      
+      # Gir overskrift til variablene
+      color = "Region" ) + 
+  
+  # Danner et tema til modellen 
+  theme_bw() + 
+  
+   
+  theme(
+    
+    # Endrer størrelsen på hovedoverskriften og gjør den tykk
+    plot.title = element_text(size = 24, face = "bold"), 
+    
+    # Endrer størrelsen på undertittle og gjør den kursiv
+    plot.subtitle = element_text(size = 18, face = "italic"), 
+    
+    # flytter variablene under x- aksen
+    legend.position = "bottom")
+
+```
+
+### Deloppgave 3
+
+```{r}
+
+df_monthly_sales <- df_monthly_sales %>% 
+  pivot_wider(names_from = Region,
+              values_from = Total_Sales)
+
+table2 <- df_monthly_sales %>%
+  clean_names() %>% 
+  group_by(date) %>% 
+  filter(region_13 > region_1) %>%  
+
+
+print(table2)
+```
+
+### Deloppgave 4
+
+```{r}
+
+# Filtrer data for 2017 og ekskluder regionene 3, 5 og 8
+table_3 <- df_sales %>%
+  mutate(Year = year(Order_Date)) %>% 
+  filter(Year == 2017, !Region %in% c(3, 5, 8)) %>% 
+  group_by(Customer_Segment, Product_Category, Region) %>%
+  summarise(Average_Profit = mean(Profit, na.rm = TRUE)) %>%
+  arrange(desc(Average_Profit)) %>% 
+  ungroup()
+  
+table_3 <- table_3 %>% slice(1)
+print(table_3)
+
+
+```
+
+## Oppgave 2
+
+### Deloppgave 1
+
+```{r}
+# Bibliotek
+library(rvest)
+
+# Hent nettsiden
+url <- "https://www.motor.no/aktuelt/motors-store-vintertest-av-rekkevidde-pa-elbiler/217132"
+webpage <- read_html(url)
+
+# Finn tabellene
+tables <- html_nodes(webpage, "table")
+
+# Les inn tabellen
+df_negativ <- html_table(tables[[1]], fill = TRUE)
+
+# Bruk første rad som kolonnenavn
+colnames(df_negativ) <- df_negativ[1, ]
+df_negativ <- df_negativ[-1, ]
+
+df_negativ <- df_negativ %>%
+  mutate(`WLTP-tall` = str_extract(`WLTP-tall`, "^\\d+"))
+
+
+
+```
+
+```{r warning=FALSE, message=FALSE}
+#| label: fig-monthly-sales
+#| fig-cap: "Monthly total sales"
+#| fig.width: 5
+#| fig.height: 5
+
+df_negativ %>% 
+  
+  # Danner en figur 
+  ggplot(aes(
+    x = as.numeric(as.character(`WLTP-tall`)),  
+    y = as.numeric(as.character(gsub(" km", "", STOPP)))  # Fjerner " km" og konverterer til tall
+  )) +   
+ 
+  geom_point() +
+  
+  geom_abline(slope = 1, intercept = 0, color = "red", linewidth = 1) +
+  
+  
+  scale_x_continuous(limits = c(150,700),breaks = seq(100, 700, by = 100), expand = c(0,0)) +
+  
+    scale_y_continuous(limits = c(150,700),breaks = seq(100, 700, by = 100), expand = c(0,0)) +
+  
+  
+  labs(
+      # Hovedtittel
+      title = "WLTP range" , 
+      
+      # Undertittel
+      subtitle = " ",
+      
+      # Danner en kilde
+      caption = "Kilde: Motor" , # Kilde
+      
+      # Danner en aksetittel
+      x = "WLTP-tall",
+      
+      # Danner en aksetittel
+      y = "Stopp",
+      
+      # Gir overskrift til variablene
+      color = "Region" ) + 
+  
+  # Danner et tema til modellen 
+  theme_minimal() + 
+  
+   
+  theme(
+    
+    # Endrer størrelsen på hovedoverskriften og gjør den tykk
+    plot.title = element_text(size = 24, face = "bold"), 
+    
+    # Endrer størrelsen på undertittle og gjør den kursiv
+    plot.subtitle = element_text(size = 18, face = "italic"), 
+    
+    # flytter variablene under x- aksen
+    legend.position = "bottom")
+
+```
+
+### Deloppgave 2
+
+```{r warning=FALSE, message=FALSE}
+#| label: fig-negativ
+#| fig-cap: "Negativ"
+#| fig.width: 5
+#| fig.height: 5
+
+df_negativ %>% 
+  
+  # Danner en figur 
+  ggplot(aes(
+    x = as.numeric(as.character(`WLTP-tall`)),  
+    y = as.numeric(as.character(gsub(" km", "", STOPP)))  # Fjerner " km" og konverterer til tall
+  )) +   
+ 
+  geom_point() +
+  
+  geom_abline(slope = 1, intercept = 0, color = "red", linewidth = 1) +
+  
+ geom_smooth(method = "lm", color = "black") +
+  
+  
+  scale_x_continuous(limits = c(150,700),breaks = seq(100, 700, by = 100), expand = c(0,0)) +
+  
+    scale_y_continuous(limits = c(150,700),breaks = seq(100, 700, by = 100), expand = c(0,0)) +
+  
+  
+  labs(
+      # Hovedtittel
+      title = "WLTP Range " , 
+      
+      # Undertittel
+      subtitle = " ",
+      
+      # Danner en kilde
+      caption = "Kilde: Motor" , # Kilde
+      
+      # Danner en aksetittel
+      x = "WLTP-tall",
+      
+      # Danner en aksetittel
+      y = "Stopp",
+      
+      # Gir overskrift til variablene
+      color = "Region" ) + 
+  
+  # Danner et tema til modellen 
+  theme_minimal() + 
+  
+   
+  theme(
+    
+    # Endrer størrelsen på hovedoverskriften og gjør den tykk
+    plot.title = element_text(size = 24, face = "bold"), 
+    
+    # Endrer størrelsen på undertittle og gjør den kursiv
+    plot.subtitle = element_text(size = 18, face = "italic"), 
+    
+    # flytter variablene under x- aksen
+    legend.position = "bottom")
+```
+
+```{r}
+df_negativ <- df_negativ %>%
+  mutate(
+    STOPP = as.numeric(gsub(" km", "", STOPP)), 
+    `WLTP-tall` = as.numeric(`WLTP-tall`) # Rettet feilen her
+  )
+
+# Sjekk at dataene er korrekt konvertert
+str(df_negativ)
+
+# Kjør regresjonen på rensede data
+summary(lm(STOPP ~ `WLTP-tall`, data = df_negativ))
+
+
+```
+
+Intercepten på -26,65 betyr at når kilometer (km) er 0, vil stopp være -26,65. Når km øker med 1, øker stopp med 0,87 km. Dette viser at bilens faktiske rekkevidde er noe kortere enn det som er oppgitt.
