@@ -1,0 +1,817 @@
+---
+title: "Assignment 3"
+author: "Sophie Haugenes Kristiansen"
+format:
+  html:
+    fig-pos: "H"
+    includes:
+      in-header: header.tex
+language: quarto_norsk.yml
+warning: false
+output: true
+editor: visual
+---
+
+## Task 1
+
+```{r}
+# Fjern alle objekter i miljøet
+# Remove all object form environment
+rm(list=ls())
+
+# Last inn nødvendige bibliotek
+# Load necessary libraries
+library(readxl)
+library(tidyverse)
+library(janitor)  
+library(scales)
+```
+
+```{r}
+
+# Les inn Excel-filen
+# Reading the Excel-fil
+df_task1 <- read_excel("Task_1.xlsx", sheet = 12, skip = 8)
+
+# Fjern de uønskede kolonnene
+# Removing unnecessary columns
+df_task1 <- df_task1 %>% 
+  select(-c(`...7`, `Figure 6. Total bilateral commitments plus refugee costs (billion Euros)`))
+
+```
+
+```{r}
+
+df_task1 <- df_task1 %>% 
+  
+  pivot_longer(
+    
+    # Velger kolonnene som skal transformeres fra bredt til langt format
+    # Selecting the columns to transform from wide to long format
+    cols = c(Financial, Humanitarian, Military, `Refugee cost estimation`), 
+    
+    # Angir navnet på den nye kolonnen som skal inneholde de gamle kolonnenavnene
+    # Naming the new column that will contain the old column names
+    names_to = "Type", 
+    
+    # Angir navnet på den nye kolonnen som skal inneholde verdiene fra de valgte kolonnene
+    # Naming the new column that will contain the values from the selected columns
+    values_to = "Value" ) %>% 
+  
+  # Filtrerer ut rader der "Country" er lik "Total"
+  # Filtering out rows where "Country" is equal to "Total"
+  filter(Country != "Total") %>% 
+  
+  # Fjerner rader med NA-verdier
+  # Removing rows with NA values
+  drop_na()
+```
+
+```{r warning=FALSE, message=FALSE}
+#| label: fig-task1
+#| fig-cap: "Total bilateral commitments plus refugee costs (billion Euros)"
+#| fig.width: 10
+#| fig.height: 6
+
+df_task1 %>% 
+  ggplot(aes(
+    # Setter "Total" som x-akse 
+    # Setting "Total" as the x-axis 
+    x = Total, 
+    
+    # Sorterer land etter total kostnad (fra lavest til høyest)
+    # Sorting countries by total cost (from lowest to highest)
+    y = reorder(Country, Total),  
+    
+    # Farger stolpene basert på "Type" (økonomisk, humanitær, militær, osv.)
+    # Coloring bars based on "Type" (financial, humanitarian, military, etc.)
+    fill = Type  
+  )) +   
+  
+  # Lager stolpediagram der høyden på stolpene representerer verdier i datasettet
+  # Creating a bar chart where bar height represents values in the dataset
+  geom_bar(stat = "identity", color = "black") +
+  
+  # Bruker en fargepalett fra RColorBrewer (rød-lilla nyanser for visuell klarhet)
+  # Applying a color palette from RColorBrewer (red-purple shades for visual clarity)
+  scale_fill_brewer(palette = "RdPu") +
+  
+  # Legger til tittel, undertittel, kildehenvisning og akseetiketter
+  # Adding title, subtitle, source reference, and axis labels
+  labs(
+    title = "Total Bilateral Commitments Plus Refugee Costs (Billion Euros)",  # Diagramtittel
+    subtitle = "From January 24, 2022, to December 31, 2024",  # Undertittel
+    caption = "Source: IFW",  # Kildehenvisning
+    x = "Cost (Billion Euros)",  # Etikett for x-aksen
+    y = "Country",  # Etikett for y-aksen
+    fill = " "  # Tom etikett for fyll-legenden for et renere utseende
+  ) + 
+  
+  # Bruker et minimalistisk tema for et rent og moderne utseende
+  # Applying a minimalistic theme for a clean and modern look
+  theme_minimal() + 
+  
+  # Tilpasser utseendet på ulike elementer i diagrammet
+  # Customizing the appearance of various elements in the plot
+  theme(
+    # Gjør tittelen stor og fet for tydelighet
+    # Making the title large and bold for clarity
+    plot.title = element_text(size = 18, face = "bold"),  
+    
+    # Gjør undertittelen stor 
+    # Making the subtitle large 
+    plot.subtitle = element_text(size = 16),  
+    
+    # Plasserer legenden nederst for bedre lesbarhet
+    # Positioning the legend at the bottom for better readability
+    legend.position = "bottom",  
+    
+    # Gjør y-akse tekst mindre for å unngå overlapping
+    # Making y-axis text smaller to avoid overlap
+    axis.text.y = element_text(size = 7)  
+  )
+
+```
+
+Siden begynnelsen av konflikten i Ukraina i 2022, har flere land og internasjonale institusjoner gitt betydelig militær, økonomisk, estimert kostnad for flyktninger, og humanitær bistand. @fig-task1 er en oversikt over de største bidragsyterne og deres totale bidrag. De totale bidragene er fargekodet for å vise hvordan hvert land har delt opp sine bidrag i forskjellige områder: militær, økonomisk, estimert kostnad for flyktninger og humanitær bistand.
+
+Since the beginning of the conflict in Ukraine in 2022, numerous countries and international institutions have provided substantial military, financial, refugee cost estimation, and humanitarian aid. @fig-task1 is an overview of the largest donors and their total contributions. The total contributions are color-coded to show the breakdown of what each country has given in different fields: military, financial, refugee cost estimation, and humanitarian aid.
+
+## Task 2
+
+### Task 2.1
+
+```{r}
+
+# Definerer URL-en til datasettet
+# Defining the URL for the dataset
+url_task2 <- "https://raw.githubusercontent.com/ywchiu/rcookbook/master/chapter7/superstore_sales.csv"
+
+# Leser inn CSV-filen direkte fra URL
+# Reading the CSV file directly from the URL
+df_task2 <- read_csv(url_task2)
+
+# Rengjør kolonnenavnene ved å konvertere dem til en mer konsistent stil
+# Cleaning column names by converting them to a more consistent format
+df_task2 <- df_task2 %>% 
+  clean_names()
+
+```
+
+```{r}
+# Konverterer "order_date" til datoformat og ekstraherer år og måned
+# Converting "order_date" to date format and extracting year and month
+df_monthly_sales <- df_task2 %>%
+  mutate(
+    # Endrer "order_date" til et datoobjekt med riktig format
+    # Converting "order_date" into a date object with the correct format
+    order_date = as.Date(order_date, format="%Y/%m/%d"),
+    
+    # Ekstraherer året fra "order_date"
+    # Extracting the year from "order_date"
+    year = year(order_date),
+    
+    # Ekstraherer måneden fra "order_date" og gir den etiketter på engelsk
+    # Extracting the month from "order_date" and labeling it in English
+    month = month(order_date, label = TRUE, locale = "en_US")
+  )
+```
+
+```{r}
+
+# Beregner månedlig totalsalg og finner de unike kombinasjonene av måned og år
+# Calculating total monthly sales and finding unique month-year combinations
+df_best_monthly_sales <- df_monthly_sales %>% 
+  group_by(month, year) %>%  # Grupperer dataene etter måned og år
+  mutate(
+    # Beregner total salg for hver måned
+    # Calculating total sales for each month
+    total_sales = sum(sales, na.rm = TRUE), 
+    .groups = "drop"  # Fjerner grupperingen etter operasjonen
+  ) %>%
+  
+  # Velger kun relevante kolonner for resultatsettet
+  # Selecting only relevant columns for the final dataset
+  select(month, year, total_sales) %>% 
+  
+  # Fjerner grupperingen for å jobbe med dataene uten gruppering
+  # Ungrouping the data to work with it as a whole
+  ungroup() %>% 
+  
+  # Sikrer at hver måned-år kombinasjon kun vises én gang
+  # Ensuring each month-year combination appears only once
+  distinct(month, year, .keep_all = TRUE)
+
+```
+
+```{r}
+#| label: fig-task2-1
+#| fig-cap: "Best monthly sales"
+#| fig.width: 10
+#| fig.height: 6
+
+# Henter ut datasettet og lager en visualisering
+# Retrieving the dataset and creating a visualization
+df_best_monthly_sales %>% 
+  
+  ggplot(aes(
+    # Setter "month" som x-akse (månedlig salg)
+    # Setting "month" as the x-axis (monthly sales)
+    x = month, 
+    
+    # Setter "total_sales" som y-akse (totalt salg per måned)
+    # Setting "total_sales" as the y-axis (total sales per month)
+    y = total_sales, 
+    
+    # Grupperer etter år slik at hver linje representerer ett år
+    # Grouping by year so that each line represents a year
+    group = year, 
+    
+    # Farger linjene basert på året for å skille dem fra hverandre
+    # Coloring lines based on the year for differentiation
+    colour = year  
+  )) +   
+  
+  # Deler opp plottet i separate paneler for hvert år
+  # Splitting the plot into separate panels for each year
+  facet_wrap(~year) +
+  
+  # Lager stolpediagram med svarte kanter rundt stolpene
+  # Creating a bar chart with black borders around bars
+  geom_bar(stat = "identity", color = "black") +
+  
+  # Tilpasser y-aksen med tusenskilletegn og setter grenseverdier
+  # Adjusting the y-axis with comma separators and setting limits
+  scale_y_continuous(
+    labels = label_comma(),  # Legger til tusenskilletegn i tallene
+    limits = c(0, 550000),  # Setter maksimumsgrense for y-aksen
+    breaks = seq(0, 550000, by = 100000)  # Angir intervallene på y-aksen
+  ) +
+
+  # Legger til tittel og akseetiketter
+  # Adding title and axis labels
+  labs(
+    title = "Best total monthly sales ", # Title
+    subtitle = "For the superstore in Canada.", # subtitle
+    x = "Month",  # X-akse etikett
+    y = "Total sales"  # Y-akse etikett
+  ) +
+  
+  # Bruker et sort-hvitt tema for et ryddig og klassisk utseende
+  # Applying a black-and-white theme for a clean and classic look
+  theme_bw() + 
+  
+  # Tilpasser utseendet på tittel og legende
+  # Customizing the appearance of the title and legend
+  theme(
+    # Gjør tittelen stor og fet for tydelighet
+    # Making the title large and bold for clarity
+    plot.title = element_text(size = 20, face = "bold"),  
+    
+    # Gjør undertittelen stor 
+    # Making the subtitle large 
+    plot.subtitle = element_text(size = 16))
+```
+
+@fig-task2-1 is a bar chart showing total monthly sales for "superstore" in Canada from 2009 to 2012.
+
+@fig-task2-1 er et stolpediagram som viser de totale månedlige salgene for "superstore " i Canada fra 2009 til 2012.
+
+### Task 2.2
+
+```{r}
+
+df_province <- df_monthly_sales %>% 
+  
+  # Grupperer dataene etter provins
+  # Grouping the data by province
+  group_by(province) %>%
+  
+  mutate(
+    
+    # Beregner totalt salg per provins
+    # Calculating total sales per province
+    total_sales = sum(sales, na.rm = TRUE), 
+    
+    .groups = "drop"  # Fjerner grupperingen etter beregningen
+  ) %>%
+  
+  # Velger kun de relevante kolonnene
+  # Selecting only the relevant columns
+  select(province, total_sales) %>% 
+  
+  # Fjerner grupperingen slik at dataene kan behandles videre uten gruppering
+  # Ungrouping the data to allow further processing without grouping
+  ungroup() %>% 
+  
+  # Sikrer at hver provins kun vises én gang i datasettet
+  # Ensuring each province appears only once in the dataset
+  distinct(province, .keep_all = TRUE)
+
+```
+
+```{r}
+#| label: fig-task2-2
+#| fig-cap: "Best monthly sales"
+#| fig.width: 10
+#| fig.height: 6
+
+
+# Henter ut datasettet og lager en visualisering
+# Retrieving the dataset and creating a visualization
+df_province %>% 
+  ggplot(aes(
+    # Setter "total_sales" som x-akse (totalt salg per provins)
+    # Setting "total_sales" as the x-axis (total sales per province)
+    x = total_sales, 
+    
+    # Setter "province" som y-akse, sortert etter total salg
+    # Setting "province" as the y-axis, sorted by total sales
+    y = reorder(province, total_sales)
+  )) +   
+  
+  # Lager stolpediagram med svarte kanter rundt stolpene
+  # Creating a bar chart with black borders around bars
+  geom_bar(stat = "identity", color = "black") +
+  
+  # Tilpasser x-aksen med tusenskilletegn og setter grenseverdier
+  # Adjusting the x-axis with comma separators and setting limits
+  scale_x_continuous(
+    labels = label_comma(),  # Legger til tusenskilletegn i tallene
+    limits = c(0, 3250000),  # Setter maksimumsgrense for x-aksen
+    breaks = seq(0, 4000000, by = 500000)  # Angir intervallene på x-aksen
+  ) +
+
+  # Legger til tittel og akseetiketter
+  # Adding title and axis labels
+  labs(
+    title = "Total Sales per province",  # Diagramtittel
+    x = "Total Sales",  # X-akse etikett
+    y = "Province"  # Y-akse etikett
+  ) +
+  
+  # Bruker et sort-hvitt tema for et rent og oversiktlig utseende
+  # Applying a black-and-white theme for a clean and structured look
+  theme_bw() + 
+  
+  # Tilpasser utseendet på tittel og legende
+  # Customizing the appearance of the title and legend
+  theme(
+    # Gjør tittelen stor og fet for tydelighet
+    # Making the title large and bold for clarity
+    plot.title = element_text(size = 20, face = "bold"))
+
+```
+
+@fig-task2-2 viser totale salg for hver province etter stigende rekkefølge. Her ser vi at Ontario er den provicenen med høyest total salg.
+
+@fig-task2-2 shows total sales for each province in ascending order. Here, we see that Ontario is the province with the highest total sales.
+
+### Task 2.3
+
+```{r}
+#| label: fig-task2-3
+#| fig-cap: "Best sales product category"
+#| fig.width: 10
+#| fig.height: 6
+
+# Oppretter et datasett med den mest solgte produktkategorien per provins
+# Creating a dataset with the most sold product category per province
+df_product_category <- df_monthly_sales %>% 
+  
+  # Grupperer dataene etter provins og produktkategori
+  # Grouping the data by province and product category
+  group_by(province, product_category) %>% 
+  
+  # Beregner totalt salg per produktkategori i hver provins
+  # Calculating total sales per product category in each province
+  summarise(total_sales = sum(sales), .groups = 'drop') %>% 
+  
+  # Sorterer innenfor hver provins etter synkende totalsalg
+  # Sorting within each province by descending total sales
+  arrange(province, desc(total_sales)) %>% 
+  
+  # Grupperer igjen etter provins for å velge toppkategorien
+  # Grouping again by province to select the top-selling category
+  group_by(province) %>% 
+  
+  # Velger kun den mest solgte produktkategorien for hver provins
+  # Selecting only the most sold product category for each province
+  slice(1)
+
+# Plotter de mest solgte produktkategoriene per provins
+# Plotting the most sold product categories per province
+df_product_category %>% 
+  
+  ggplot(aes(
+    # Sorterer provinsene etter totalt salg for en bedre visuell effekt
+    # Sorting provinces by total sales for better visual representation
+    x = reorder(province, total_sales), 
+    
+    # Setter totalt salg som y-akse
+    # Setting total sales as the y-axis
+    y = total_sales, 
+    
+    # Farger stolpene etter produktkategori
+    # Coloring bars based on product category
+    fill = product_category  
+  )) +
+  
+  # Tilpasser y-aksen med tusenskilletegn og setter grenseverdier
+  # Adjusting the y-axis with comma separators and setting limits
+  scale_y_continuous(
+    labels = label_comma(),  # Legger til tusenskilletegn i tallene
+    limits = c(0, 1250000),  # Setter maksimumsgrense for y-aksen
+    breaks = seq(0, 4000000, by = 500000)  # Angir intervallene på y-aksen
+  ) +
+  
+  # Lager stolpediagram med svarte kanter rundt stolpene
+  # Creating a bar chart with black borders around bars
+  geom_bar(stat = "identity", color = "black") +
+  
+  # Legger til tittel og akseetiketter
+  # Adding title and axis labels
+  labs(
+    title = "Most Sold Product Category in Each Province",  # Diagramtittel
+    x = "Province",  # X-akse etikett
+    y = "Total Sales",  # Y-akse etikett
+    fill = "Product Category"  # Legende etikett for produktkategorier
+  ) +
+  
+  # Bruker et minimalistisk tema for et rent utseende
+  # Applying a minimalistic theme for a clean look
+  theme_minimal() +
+  
+  # Tilpasser utseendet på tittel, aksetekst og legende
+  # Customizing title appearance, axis text, and legend position
+  theme(
+    plot.title = element_text(size = 24, face = "bold"),  # Stor og fet tittel
+    axis.text.x = element_text(size = 10, angle = 90, face = "bold"),  # Roterer x-akse etiketter for bedre lesbarhet
+    legend.position = c(0.2, 0.6),  # Plasserer legenden innenfor plottet
+    legend.background = element_rect(fill = "white")  # Setter hvit bakgrunn for legenden
+  )
+
+```
+
+@fig-task2-3 viser hvilken produkt katekori som har høyest salg, igjennom et barplot. Provincene er også her rangert etter høyest salg. De ulike produkt kategorisene er skilt etter farge, hvor blå er teknologi og rød er møbler.
+
+@fig-task2-3 shows which product category has the highest sales through a bar plot. The provinces are also ranked by highest sales. The different product categories are distinguished by color, with blue representing technology and red representing furniture.
+
+## Task 3
+
+### Task 3 a
+
+```{r}
+
+# Laster inn gapminder-datasettet
+# Loading the gapminder dataset
+library(gapminder)
+
+# Henter gapminder-data
+# Retrieving gapminder data
+data("gapminder") 
+
+# Filtrerer data for Asia og beregner minimum og maksimum levealder per år
+# Filtering data for Asia and calculating the minimum and maximum life expectancy per year
+asia_life_expectancy <- gapminder %>%
+  
+  # Filtrerer kun for kontinentet Asia
+  # Filtering only for the continent Asia
+  filter(continent == "Asia") %>%
+  
+  # Grupperer dataene etter år
+  # Grouping the data by year
+  group_by(year) %>%
+  
+  # Beregner minimum og maksimum levealder per år
+  # Calculating the minimum and maximum life expectancy per year
+  summarise(
+    min_lifeExp = min(lifeExp),  # Laveste levealder i Asia for hvert år
+    max_lifeExp = max(lifeExp)   # Høyeste levealder i Asia for hvert år
+  )
+
+# Viser resultatet
+# Displaying the result
+asia_life_expectancy
+
+```
+
+### Task 3 b
+
+```{r}
+
+# Beregner logaritmisk differanse for minimum og maksimum levealder per år
+# Calculating the logarithmic difference for minimum and maximum life expectancy per year
+asia_life_expectancy <- asia_life_expectancy %>%
+  mutate(
+    # Beregner prosentvis log-endring i minimum levealder fra forrige år
+    # Calculating percentage log change in minimum life expectancy from the previous year
+    Min_LogDiff = 100 * ((log(min_lifeExp) - log(lag(min_lifeExp)))/log(lag(min_lifeExp))) ,
+    
+    # Beregner prosentvis log-endring i maksimum levealder fra forrige år
+    # Calculating percentage log change in maximum life expectancy from the previous year
+    Max_LogDiff = 100 * ((log(max_lifeExp) - log(lag(max_lifeExp)))/ log(lag(max_lifeExp)))
+  )
+
+# Fjerner rader med manglende verdier (som den første raden pga. lag())
+# Removing rows with missing values (such as the first row due to lag())
+asia_life_expectancy <- na.omit(asia_life_expectancy)
+
+# Viser det oppdaterte datasettet
+# Displaying the updated dataset
+asia_life_expectancy
+
+```
+
+### Task 3 c
+
+```{r}
+
+# Beregner totalt BNP og inkluderer nødvendige kolonner
+# Calculating total GDP and selecting relevant columns
+
+gdp_life <- gapminder %>%
+  
+  # Grupperer etter år, land og kontinent
+  # Grouping by year, country, and continent
+  group_by(year, country, continent) %>% 
+  
+  # Beregner totalt BNP (BNP per innbygger * befolkning)
+  # Calculating total GDP (GDP per capita * population)
+  summarise(
+    Total_GDP = sum(gdpPercap * pop, na.rm = TRUE),  # Totalt BNP per land per år
+    Avg_LifeExp = mean(lifeExp, na.rm = TRUE),  # Gjennomsnittlig levealder per land per år
+    .groups = "drop"  # Fjerner grupperingen automatisk
+  ) 
+
+# Beregner gjennomsnittlig BNP og levealder per land over alle år
+# Calculating the average GDP and life expectancy per country across all years
+gdp_life <- gdp_life %>%
+  
+  # Grupperer etter land og kontinent
+  # Grouping by country and continent
+  group_by(country, continent) %>%
+  
+  # Beregner gjennomsnittlig BNP og levealder over alle år
+  # Calculating the average GDP and life expectancy across all years
+  summarise(
+    Avg_LifeExp = mean(Avg_LifeExp, na.rm = TRUE),  # Gjennomsnittlig levealder per land
+    Avg_GDP = mean(Total_GDP, na.rm = TRUE),  # Gjennomsnittlig BNP per land
+    .groups = "drop"  # Fjerner grupperingen automatisk
+  )
+
+
+```
+
+```{r}
+# Finner de 20 landene med høyest gjennomsnittlig levealder
+# Finding the top 20 countries with the highest average life expectancy
+top20_lifeexp <- gdp_life %>%
+  arrange(desc(Avg_LifeExp)) %>%  # Sorterer etter synkende levealder
+  head(20)  # Velger de 20 øverste
+
+# Finner de 20 landene med høyest gjennomsnittlig BNP
+# Finding the top 20 countries with the highest average GDP
+top20_gdp <- gdp_life %>%
+  arrange(desc(Avg_GDP)) %>%  # Sorterer etter synkende BNP
+  head(20)  # Velger de 20 øverste
+```
+
+```{r}
+#| label: fig-task3-c-1
+#| fig-cap: "Average life expectancy"
+#| fig.width: 10
+#| fig.height: 6
+
+
+# Plotter gjennomsnittlig levealder for de 20 landene med høyest levealder
+# Plotting the average life expectancy for the top 20 countries with the highest life expectancy
+
+top20_lifeexp %>% 
+  ggplot(aes(
+    # Setter gjennomsnittlig levealder som x-akse
+    # Setting average life expectancy as the x-axis
+    x = Avg_LifeExp, 
+    
+    # Reorganiserer landene etter gjennomsnittlig levealder på y-aksen
+    # Reordering countries by average life expectancy on the y-axis
+    y = reorder(country, Avg_LifeExp) 
+  )) +
+  
+  # Legger til punkter for hvert land i plottet
+  # Adding points for each country in the plot
+  geom_point(size = 3, color = "blue") +
+  
+  # Legger til titler og etiketter
+  # Adding title and labels
+  labs(
+    title = "Top 20 Countries by Average Life Expectancy",  # Diagramtittel
+    x = "Average Life Expectancy (Years)",  # X-akse etikett
+    y = "Country"  # Y-akse etikett
+  ) +
+  
+  # Bruker et minimalistisk tema for et rent utseende
+  # Applying a minimalistic theme for a clean look
+  theme_minimal()
+
+```
+
+@fig-task3-c-1 viser gjennomsnittig leve alder for de 20 landene med lengst gjennomsnittig levealder.
+
+@fig-task3-c-1 shows the average life expectancy for the 20 countries with the highest average life expectancy.
+
+```{r}
+#| label: fig-task3-c-2
+#| fig-cap: "Average GDP"
+#| fig.width: 10
+#| fig.height: 6
+
+
+# Plotter gjennomsnittlig BNP for de 20 landene med høyest BNP
+# Plotting the average GDP for the top 20 countries with the highest GDP
+
+top20_gdp %>% 
+  ggplot(aes(
+    # Setter gjennomsnittlig BNP som x-akse
+    # Setting average GDP as the x-axis
+    x = Avg_GDP, 
+    
+    # Reorganiserer landene etter gjennomsnittlig BNP på y-aksen
+    # Reordering countries by average GDP on the y-axis
+    y = reorder(country, Avg_GDP) 
+  )) +
+  
+  # Legger til punkter for hvert land i plottet
+  # Adding points for each country in the plot
+  geom_point(size = 3, color = "red") +
+  
+  # Tilpasser x-aksen med kommaseparerte tall og definerer grenser
+  # Customizing the x-axis with comma-separated numbers and setting limits
+  scale_x_continuous(
+    labels = label_comma(),  # Formaterer tall med komma
+    limits = c(0, 6500000000000),  # Setter grenser for BNP-verdi
+    breaks = seq(0, 6500000000000, by = 1500000000000)  # Setter intervaller på aksen
+  ) +
+  
+  # Legger til titler og etiketter
+  # Adding title and labels
+  labs(
+    title = "Top 20 Countries by Average GDP",  # Diagramtittel
+    x = "Average GDP (USD)",  # X-akse etikett
+    y = "Country"  # Y-akse etikett
+  ) +
+  
+  # Bruker et minimalistisk tema for et rent utseende
+  # Applying a minimalistic theme for a clean look
+  theme_minimal()
+
+```
+
+@fig-task3-c-2 viser gjennomsnittig BNPfor de 20 landene med høyest gjennomsnittig BNP .
+
+@fig-task3-c-2 shows the average GDP for the 20 countries with the highest average GDP.
+
+### Task 3 d
+
+```{r}
+#| label: fig-task3-d
+#| fig-cap: "GDP vs Life expextense"
+#| fig.width: 10
+#| fig.height: 6
+
+
+# Legger til log-transformerte verdier av BNP og levealder
+# Adding log-transformed values of GDP and life expectancy
+gdp_life <- gdp_life %>%
+  mutate(
+    log_life = log(Avg_LifeExp),  # Log-transformasjon av gjennomsnittlig levealder
+    log_gdp = log(Avg_GDP)  # Log-transformasjon av gjennomsnittlig BNP
+  )
+
+# Plotter sammenhengen mellom log-BNP og log-levealder, farget etter kontinent
+# Plotting the relationship between log-GDP and log-life expectancy, colored by continent
+gdp_life %>% 
+  ggplot(aes(
+    x = log_gdp,  # Setter log-transformert BNP som x-akse
+    y = log_life,  # Setter log-transformert levealder som y-akse
+    color = continent  # Farger punktene etter kontinent
+  )) +
+  
+  # Legger til punkter for hvert land i plottet
+  # Adding points for each country in the plot
+  geom_point() +
+  
+  # Legger til titler og etiketter
+  # Adding title and labels
+  labs(
+    title = "GDP vs. Life Expectancy",  # Diagramtittel
+    x = "Log GDP",  # X-akse etikett (rettet skrivefeil)
+    y = "Log Life Expectancy",  # Y-akse etikett (rettet skrivefeil)
+    color = "Continent"  # Etikett for fargelegenden
+  ) +
+  
+  # Bruker et minimalistisk tema for et rent utseende
+  # Applying a minimalistic theme for a clean look
+  theme_minimal() +
+  
+  # Justerer utseendet på tittelen og x-aksen
+  # Adjusting the appearance of the title and x-axis text
+  theme(
+    plot.title = element_text(size = 24, face = "bold"),  # Stor og fet tittel
+    axis.text.x = element_text(size = 10, angle = 90, face = "bold")  # Rotert x-akse tekst
+  )
+
+```
+
+@fig-task3-d viser forholdet mellom gjennomsnittlig BNP og levealder. Verdiene til BNP og levealder er gitt i logarytmen til verdien.
+
+@fig-task3-d shows the relation between average GDP and life expectency. The value for GDP and life expectency are given in the logarithm of the value.
+
+### Task 3 e
+
+```{r}
+
+gapminder_life_gain <- gapminder %>%
+  
+  select(country, year, lifeExp) %>%
+  
+  # Grupper etter land
+  # Group by country
+  group_by(country) %>%
+  
+  # Beregn økning i levealder
+  # Compute life expectancy gain
+  mutate(lifeExp_gain = lifeExp - lifeExp[year == 1952]) %>% 
+  
+  select(country, year, lifeExp_gain) %>%  
+  
+  pivot_wider(names_from = year, values_from = lifeExp_gain)
+```
+
+```{r}
+
+gapminder_life_drop <- gapminder %>%
+  
+  # Grupper etter kontinent og land
+  # Group by continent and country
+  group_by(continent, country) %>%
+  
+  # Sorter dataene etter år
+  # Ensure data is sorted by year
+  arrange(year) %>%
+  
+  # Beregn endring fra forrige år
+  # Compute year-to-year change
+  mutate(lifeExp_change = lifeExp - lag(lifeExp)) %>%
+  
+  # Finn største nedgang i levealder
+  # Find the worst drop in life expectancy
+  summarise(min_5yr_drop = min(lifeExp_change, na.rm = TRUE), .groups = "drop") %>%
+  
+  # Grupper på nytt etter kontinent
+  # Group by continent again
+  group_by(continent) %>%
+  
+  # Velg landet med største nedgang per kontinent
+  # Get the country with the worst drop per continent
+  slice_min(min_5yr_drop, n = 1)
+```
+
+```{r}
+
+gapminder_yearly_change <- gapminder %>%
+  
+  # Grupper etter land
+  # Group by country
+  group_by(country) %>%
+  
+  # Sorter etter år
+  # Ensure data is sorted by year
+  arrange(year) %>%
+  
+  # Beregn år-til-år-endring i levealder
+  # Compute year-to-year life expectancy change
+  mutate(lifeExp_change = lifeExp - lag(lifeExp))
+
+```
+
+```{r}
+
+# Skriv ut levealdergevinst per land
+# Print life expectancy gain per country
+gapminder_life_gain
+
+# Skriv ut landet med den største 5-års nedgangen per kontinent
+# Print the country with the sharpest 5-year drop per continent
+gapminder_life_drop
+
+# Skriv ut år-til-år-endring i levealder per land
+# Print yearly change in life expectancy per country
+gapminder_yearly_change
+```
+
+## Appendix
+
+OpenAI. (2024). *ChatGPT* (mars 2025 versjon) \[Language model\]. Hentet fra <https://chat.openai.com/> :
+
+ChatGPT har blitt brukt til å fikse på feil i koder. Det er også hjulpet til å forbedre enkelte deler av koder. ChatGPT har også vært brukt til å omformulere ferdig skrevet tekst.
